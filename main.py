@@ -1,6 +1,5 @@
 import argparse
 import os
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from glob import glob
@@ -8,7 +7,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from PIL import Image
-
 from tqdm import tqdm
 
 
@@ -77,6 +75,10 @@ def configure_argument_parser() -> Config:
     return Config(args)
 
 
+def __handle_jpg_transparency(image: Image) -> Image:
+    return image.convert('RGB')
+
+
 def convert(source_file_path: Path, config: Config):
     dest_path = Path(f"{config.DESTINATION_FOLDER.absolute()}/{source_file_path.stem}{config.DESTINATION_FILE_TYPE}")
     with Image.open(source_file_path) as image:
@@ -89,8 +91,16 @@ def convert(source_file_path: Path, config: Config):
                        quality=config.IMAGE_QUALITY,
                        optimize=config.OPTIMIZE,
                        progressive=config.PROGRESSIVE)
+        except OSError as ex:
+            if 'RGBA' in str(ex):
+                tqdm.write(f"Warning: file {source_file_path} has a transparency layer, message: {ex}")
+                image = __handle_jpg_transparency(image)
+            image.save(dest_path, extension_name,
+                       quality=config.IMAGE_QUALITY,
+                       optimize=config.OPTIMIZE,
+                       progressive=config.PROGRESSIVE)
         except Exception as ex:
-            tqdm.write(f"Error: {ex}", nolock=True)
+            tqdm.write(f"Error: file: {source_file_path}, message: {ex}", nolock=True)
 
 
 if __name__ == "__main__":
